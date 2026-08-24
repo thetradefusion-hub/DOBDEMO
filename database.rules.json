@@ -1,0 +1,27 @@
+{
+  "rules": {
+    "demos": {
+      ".read": true,
+      ".write": "auth != null",
+      "$id": {
+        "viewCount": {
+          ".write": true
+        }
+      }
+    },
+    "categories": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "requests": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null || !data.exists()"
+      }
+    },
+    "vault": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}
