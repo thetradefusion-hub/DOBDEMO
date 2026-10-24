@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   BarChart3,
+  FileText,
   FolderOpen,
   Inbox,
   LayoutDashboard,
@@ -9,12 +10,14 @@ import {
   Settings,
 } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { Toast } from '@/components/Toast'
 import { useAuth } from '@/context/AuthContext'
 
 const links = [
   { to: '/admin', label: 'Admin Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/demos', label: 'Demos', icon: Layers },
+  { to: '/admin/landings', label: 'Landing Pages', icon: FileText },
   { to: '/admin/categories', label: 'Categories', icon: FolderOpen },
   { to: '/admin/requests', label: 'Requests', icon: Inbox },
   { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
@@ -69,7 +72,10 @@ export function AdminLayout() {
         </nav>
 
         <div className="mt-auto pt-6">
-          <div className="truncate px-1 text-[11px] text-white/40">{user?.email}</div>
+          <div className="mb-2 flex items-center justify-between gap-2 px-1">
+            <div className="truncate text-[11px] text-white/40">{user?.email}</div>
+            <ThemeToggle className="h-9 w-9 shrink-0" />
+          </div>
           <button
             type="button"
             onClick={async () => {

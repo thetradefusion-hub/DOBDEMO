@@ -20,6 +20,14 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
+export function getLandingPagePath(slug: string): string {
+  return `/products/${slug.replace(/^\/+|\/+$/g, '')}`
+}
+
+export function getLandingPageUrl(slug: string, origin = window.location.origin): string {
+  return `${origin}${getLandingPagePath(slug)}`
+}
+
 export function formatDemoDetails(
   demo: {
     title: string
@@ -27,6 +35,7 @@ export function formatDemoDetails(
     websiteUrl: string
     memberPanelUrl?: string
     adminPanelUrl?: string
+    landingPageUrl?: string
     username: string
     password: string
   },
@@ -34,8 +43,9 @@ export function formatDemoDetails(
   const lines = [
     `Demo Name: ${demo.title}`,
     `Category: ${demo.category}`,
-    `Website: ${demo.websiteUrl}`,
   ]
+  if (demo.landingPageUrl) lines.push(`Product / Landing Page: ${demo.landingPageUrl}`)
+  lines.push(`Website: ${demo.websiteUrl}`)
   if (demo.memberPanelUrl) lines.push(`Member Panel: ${demo.memberPanelUrl}`)
   if (demo.adminPanelUrl) lines.push(`Admin Panel: ${demo.adminPanelUrl}`)
   lines.push(`Username: ${demo.username}`)

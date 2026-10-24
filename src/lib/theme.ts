@@ -81,6 +81,7 @@ export const accents: Record<AccentColor, AccentTheme> = {
   },
 }
 
-export function getAccent(accent?: AccentColor): AccentTheme {
-  return accents[accent ?? 'purple']
+export function getAccent(accent?: string | AccentColor): AccentTheme {
+  if (accent && accent in accents) return accents[accent as AccentColor]
+  return accents.purple
 }

@@ -1,20 +1,22 @@
 import { Copy, Menu, Star } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { SearchBar } from '@/components/SearchBar'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { useApp } from '@/context/AppContext'
 import { useAuth } from '@/context/AuthContext'
 
 interface HeaderProps {
   onCopyVisible?: () => void
+  copyDisabled?: boolean
 }
 
-export function Header({ onCopyVisible }: HeaderProps) {
+export function Header({ onCopyVisible, copyDisabled }: HeaderProps) {
   const { favorites, setSidebarOpen } = useApp()
   const { isAdmin } = useAuth()
   const navigate = useNavigate()
 
   return (
-    <header className="sticky top-0 z-30 mb-6 flex flex-wrap items-center gap-3 bg-gradient-to-b from-[#07080f] via-[#07080f]/92 to-transparent pb-3">
+    <header className="header-fade sticky top-0 z-30 mb-6 flex flex-wrap items-center gap-3 pb-3">
       <button
         type="button"
         onClick={() => setSidebarOpen(true)}
@@ -27,6 +29,8 @@ export function Header({ onCopyVisible }: HeaderProps) {
       <SearchBar className="order-3 w-full lg:order-none lg:min-w-0 lg:flex-1" />
 
       <div className="ml-auto flex items-center gap-2">
+        <ThemeToggle />
+
         <button
           type="button"
           onClick={() => navigate('/favorites')}
@@ -39,7 +43,9 @@ export function Header({ onCopyVisible }: HeaderProps) {
         <button
           type="button"
           onClick={onCopyVisible}
-          className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#4F8CFF] px-4 py-2.5 text-[12.5px] font-semibold text-white shadow-[0_8px_22px_rgba(109,91,255,0.32)]"
+          disabled={copyDisabled || !onCopyVisible}
+          title={copyDisabled ? 'Unlock vault to copy demos' : undefined}
+          className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#4F8CFF] px-4 py-2.5 text-[12.5px] font-semibold text-white shadow-[0_8px_22px_rgba(109,91,255,0.32)] disabled:cursor-not-allowed disabled:opacity-45"
         >
           <Copy className="h-4 w-4" />
           <span className="hidden sm:inline">Copy Visible Demos</span>
@@ -50,7 +56,7 @@ export function Header({ onCopyVisible }: HeaderProps) {
           type="button"
           onClick={() => navigate(isAdmin ? '/admin' : '/admin/login')}
           title={isAdmin ? 'Admin panel' : 'Admin login'}
-          className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-[#121322] text-[12px] font-extrabold tracking-wide text-white"
+          className="chip-mark grid h-10 w-10 place-items-center rounded-full border text-[12px] font-extrabold tracking-wide"
         >
           D1
         </button>

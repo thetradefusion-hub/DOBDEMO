@@ -14,6 +14,18 @@
     />
   </head>
   <body>
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem('dob-theme')
+          if (theme !== 'light' && theme !== 'dark') theme = 'dark'
+          document.documentElement.dataset.theme = theme
+          document.documentElement.style.colorScheme = theme
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) meta.setAttribute('content', theme === 'light' ? '#eef1f8' : '#07080f')
+        } catch (e) {}
+      })()
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

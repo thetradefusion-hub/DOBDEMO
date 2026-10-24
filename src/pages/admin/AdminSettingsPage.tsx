@@ -1,8 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useApp } from '@/context/AppContext'
 import { useAuth } from '@/context/AuthContext'
 import { AUTH_CONSOLE_URL, RULES_CONSOLE_URL } from '@/lib/adminConfig'
 import { getEnvFirebaseConfig } from '@/lib/firebaseConfig'
+import {
+  DEFAULT_DEMOS_LOCK,
+  fetchDemosLockSettings,
+  saveDemosLockSettings,
+  type DemosLockSettings,
+} from '@/lib/vaultLock'
 
 export function AdminSettingsPage() {
   const { showToast, firebaseProjectId, firebaseConfigured } = useApp()
@@ -11,7 +17,78 @@ export function AdminSettingsPage() {
   const [showInactive, setShowInactive] = useState(false)
   const [brandName, setBrandName] = useState('Digital One Box')
   const [seeding, setSeeding] = useState(false)
+  const [lock, setLock] = useState<DemosLockSettings>(DEFAULT_DEMOS_LOCK)
+  const [lockEnabled, setLockEnabled] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [lockLoading, setLockLoading] = useState(true)
+  const [lockSaving, setLockSaving] = useState(false)
   const envConfigured = Boolean(getEnvFirebaseConfig())
+
+  useEffect(() => {
+    if (!firebaseConfigured) {
+      setLockLoading(false)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const settings = await fetchDemosLockSettings()
+        if (cancelled) return
+        setLock(settings)
+        setLockEnabled(settings.enabled)
+      } catch (error) {
+        if (!cancelled) {
+          showToast(
+            error instanceof Error ? error.message : 'Could not load vault lock settings',
+            'error',
+          )
+        }
+      } finally {
+        if (!cancelled) setLockLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [firebaseConfigured, showToast])
+
+  async function handleSaveLock(e: FormEvent) {
+    e.preventDefault()
+    if (lockEnabled && !lock.passwordHash && !newPassword.trim()) {
+      showToast('Password set kijiye pehle', 'error')
+      return
+    }
+    if (newPassword.trim() && newPassword !== confirmPassword) {
+      showToast('Password confirm match nahi karta', 'error')
+      return
+    }
+    if (newPassword.trim() && newPassword.trim().length < 4) {
+      showToast('Password kam se kam 4 characters ka ho', 'error')
+      return
+    }
+
+    setLockSaving(true)
+    try {
+      const saved = await saveDemosLockSettings({
+        enabled: lockEnabled,
+        password: newPassword.trim() || undefined,
+        existingHash: lock.passwordHash,
+      })
+      setLock(saved)
+      setNewPassword('')
+      setConfirmPassword('')
+      showToast(
+        saved.enabled
+          ? 'Demos vault lock saved — home / demos ab password maangenge'
+          : 'Demos vault lock disabled',
+      )
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Lock save failed', 'error')
+    } finally {
+      setLockSaving(false)
+    }
+  }
 
   return (
     <div>
@@ -81,17 +158,82 @@ export function AdminSettingsPage() {
         ) : null}
       </div>
 
+      <form onSubmit={handleSaveLock} className="glass mb-4 max-w-xl space-y-4 rounded-2xl p-5">
+        <div>
+          <div className="text-[12px] font-semibold tracking-wide text-white/40 uppercase">
+            Demo vault lock
+          </div>
+          <p className="mt-1 text-[13px] text-white/50">
+            Home, All Demos, Favorites, aur Recently Viewed password ke bina nahi khulte.
+            Password hashed store hota hai (admin login required to save).
+          </p>
+        </div>
+
+        {lockLoading ? (
+          <p className="text-[13px] text-white/45">Loading lock settings…</p>
+        ) : (
+          <>
+            <Toggle
+              label="Enable screen lock on demo vault"
+              checked={lockEnabled}
+              onChange={setLockEnabled}
+            />
+
+            <label>
+              <span className="mb-1.5 block text-[12px] font-semibold text-white/60">
+                {lock.passwordHash ? 'New password (optional)' : 'Set vault password'}
+              </span>
+              <input
+                className="field"
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder={lock.passwordHash ? 'Leave blank to keep current password' : 'Enter password'}
+              />
+            </label>
+
+            <label>
+              <span className="mb-1.5 block text-[12px] font-semibold text-white/60">
+                Confirm password
+              </span>
+              <input
+                className="field"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Re-enter password"
+              />
+            </label>
+
+            <p className="text-[12px] text-white/40">
+              Status:{' '}
+              {lock.enabled
+                ? lock.passwordHash
+                  ? 'Lock ON — password set'
+                  : 'Lock ON — password missing'
+                : 'Lock OFF'}
+            </p>
+
+            <button
+              type="submit"
+              disabled={lockSaving}
+              className="rounded-xl bg-gradient-to-r from-[#7C5CFF] to-[#4F8CFF] px-4 py-2.5 text-[13px] font-semibold text-white disabled:opacity-60"
+            >
+              {lockSaving ? 'Saving…' : 'Save vault lock'}
+            </button>
+          </>
+        )}
+      </form>
+
       <div className="glass max-w-xl space-y-5 rounded-2xl p-5">
         <label>
           <span className="mb-1.5 block text-[12px] font-semibold text-white/60">Brand Name</span>
           <input className="field" value={brandName} onChange={(e) => setBrandName(e.target.value)} />
         </label>
 
-        <Toggle
-          label="Compact demo cards"
-          checked={compactCards}
-          onChange={setCompactCards}
-        />
+        <Toggle label="Compact demo cards" checked={compactCards} onChange={setCompactCards} />
         <Toggle
           label="Show inactive demos in vault"
           checked={showInactive}

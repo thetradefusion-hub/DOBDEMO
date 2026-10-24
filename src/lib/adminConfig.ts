@@ -14,6 +14,10 @@ export const OPEN_DATABASE_RULES = `{
       ".read": true,
       ".write": "auth != null"
     },
+    "landings": {
+      ".read": true,
+      ".write": "auth != null"
+    },
     "requests": {
       ".read": "auth != null",
       "$id": {

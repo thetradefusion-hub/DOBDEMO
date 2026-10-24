@@ -1,17 +1,22 @@
+import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   Box,
   CandlestickChart,
+  Coins,
   ExternalLink,
+  FileText,
   Globe,
   LayoutGrid,
   Share2,
   ShoppingBag,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { CopyButton } from '@/components/CopyButton'
 import { FavoriteButton } from '@/components/FavoriteButton'
 import { useApp } from '@/context/AppContext'
 import { getAccent } from '@/lib/theme'
+import { getLandingPagePath, getLandingPageUrl } from '@/lib/utils'
 import type { Demo } from '@/types'
 
 const categoryIcons: Record<string, LucideIcon> = {
@@ -19,6 +24,7 @@ const categoryIcons: Record<string, LucideIcon> = {
   dapp: Box,
   'binary-plan': Share2,
   'product-based': ShoppingBag,
+  'crypto-token': Coins,
 }
 
 interface DemoCardProps {
@@ -42,6 +48,8 @@ export function DemoCard({ demo, index = 0 }: DemoCardProps) {
   const Icon = categoryIcons[demo.categoryId] ?? LayoutGrid
   const favorite = isFavorite(demo.id)
   const list = viewMode === 'list'
+  const landingPath = demo.landingPageSlug ? getLandingPagePath(demo.landingPageSlug) : null
+  const landingUrl = demo.landingPageSlug ? getLandingPageUrl(demo.landingPageSlug) : null
 
   return (
     <article
@@ -69,6 +77,14 @@ export function DemoCard({ demo, index = 0 }: DemoCardProps) {
       </div>
 
       <div className={`relative mt-3 space-y-2 ${list ? 'lg:mt-0 lg:w-[280px] lg:shrink-0' : ''}`}>
+        {landingUrl ? (
+          <CredentialRow
+            label="Landing Page"
+            value={landingUrl}
+            icon={<FileText className="h-3.5 w-3.5 shrink-0 text-white/30" />}
+            onCopy={() => copyField('Landing Page URL', landingUrl)}
+          />
+        ) : null}
         <CredentialRow
           label="Website"
           value={demo.websiteUrl}
@@ -79,6 +95,13 @@ export function DemoCard({ demo, index = 0 }: DemoCardProps) {
             label="Member Panel"
             value={demo.memberPanelUrl}
             onCopy={() => copyField('Member Panel URL', demo.memberPanelUrl!)}
+          />
+        ) : null}
+        {demo.adminPanelUrl ? (
+          <CredentialRow
+            label="Admin Panel"
+            value={demo.adminPanelUrl}
+            onCopy={() => copyField('Admin Panel URL', demo.adminPanelUrl!)}
           />
         ) : null}
         <CredentialRow
@@ -94,7 +117,32 @@ export function DemoCard({ demo, index = 0 }: DemoCardProps) {
       </div>
 
       <div className={`relative mt-3 ${list ? 'flex flex-col justify-end lg:mt-0 lg:w-[180px] lg:shrink-0' : ''}`}>
-        {demo.memberPanelUrl ? (
+        {landingPath ? (
+          <div className="mb-2 grid gap-2">
+            <Link
+              to={landingPath}
+              className={`inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-white ${accent.button}`}
+            >
+              Open Landing Page <ExternalLink className="h-3 w-3" />
+            </Link>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => openDemo(demo, demo.websiteUrl)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2.5 text-[12px] font-semibold text-white/80"
+              >
+                Website
+              </button>
+              <button
+                type="button"
+                onClick={() => openDemo(demo, demo.memberPanelUrl || demo.websiteUrl)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2.5 text-[12px] font-semibold text-white/80"
+              >
+                Member Panel
+              </button>
+            </div>
+          </div>
+        ) : demo.memberPanelUrl ? (
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -139,14 +187,16 @@ function CredentialRow({
   label,
   value,
   onCopy,
+  icon,
 }: {
   label: string
   value: string
   onCopy: () => void
+  icon?: ReactNode
 }) {
   return (
     <div className="cred-row">
-      <Globe className="h-3.5 w-3.5 shrink-0 text-white/30" />
+      {icon ?? <Globe className="h-3.5 w-3.5 shrink-0 text-white/30" />}
       <div className="min-w-0 flex-1">
         <div className="text-[9.5px] tracking-wide text-white/35 uppercase">{label}</div>
         <div className="truncate font-mono text-[11.5px] text-white/80">{value}</div>

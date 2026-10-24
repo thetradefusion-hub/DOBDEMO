@@ -13,6 +13,7 @@ const emptyDemo = (): Demo => ({
   websiteUrl: '',
   memberPanelUrl: '',
   adminPanelUrl: '',
+  landingPageSlug: '',
   username: '',
   password: '',
   featured: false,
@@ -186,6 +187,7 @@ function DemoFormModal({
       websiteUrl: form.websiteUrl.trim(),
       memberPanelUrl: form.memberPanelUrl?.trim() || undefined,
       adminPanelUrl: form.adminPanelUrl?.trim() || undefined,
+      landingPageSlug: form.landingPageSlug?.trim() || undefined,
     })
   }
 
@@ -245,6 +247,17 @@ function DemoFormModal({
             className="field"
             value={form.adminPanelUrl ?? ''}
             onChange={(e) => set('adminPanelUrl', e.target.value)}
+          />
+        </label>
+        <label className="sm:col-span-2">
+          <span className="mb-1.5 block text-[12px] font-semibold text-white/60">
+            Landing Page Slug (client share link)
+          </span>
+          <input
+            className="field"
+            value={form.landingPageSlug ?? ''}
+            onChange={(e) => set('landingPageSlug', e.target.value)}
+            placeholder="crypto-token-mlm → /products/crypto-token-mlm"
           />
         </label>
         <label>

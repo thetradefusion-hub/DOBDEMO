@@ -1,6 +1,7 @@
 import { useEffect, type FormEvent, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { LockKeyhole } from 'lucide-react'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { useAuth } from '@/context/AuthContext'
 import {
   ADMIN_EMAIL,
@@ -46,7 +47,10 @@ export function AdminLoginPage() {
 
   return (
     <div className="app-shell flex min-h-screen items-center justify-center px-4 py-8">
-      <div className="glass w-full max-w-lg rounded-2xl p-6">
+      <div className="glass relative w-full max-w-lg rounded-2xl p-6">
+        <div className="absolute top-4 right-4">
+          <ThemeToggle />
+        </div>
         <div className="mb-5 flex items-center gap-3">
           <div className="grid h-11 w-11 place-items-center rounded-xl bg-violet-500/15 text-violet-300 ring-1 ring-violet-400/30">
             <LockKeyhole className="h-5 w-5" />

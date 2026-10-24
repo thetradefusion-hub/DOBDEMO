@@ -34,11 +34,13 @@ export function Modal({
   onClose,
   children,
   wide,
+  fullscreen,
 }: {
   title: string
   onClose: () => void
   children: ReactNode
   wide?: boolean
+  fullscreen?: boolean
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -49,10 +51,26 @@ export function Modal({
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+    <div
+      className={`fixed inset-0 z-[70] flex ${
+        fullscreen ? 'items-stretch justify-stretch p-0' : 'items-center justify-center p-4'
+      }`}
+    >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className={`glass relative max-h-[90vh] w-full overflow-y-auto rounded-2xl p-5 ${wide ? 'max-w-2xl' : 'max-w-lg'}`}>
-        <div className="mb-4 flex items-center justify-between">
+      <div
+        className={`glass relative flex w-full flex-col overflow-hidden ${
+          fullscreen
+            ? 'h-dvh max-h-dvh rounded-none p-0'
+            : `max-h-[90vh] overflow-y-auto rounded-2xl p-5 ${wide ? 'max-w-2xl' : 'max-w-lg'}`
+        }`}
+      >
+        <div
+          className={`flex shrink-0 items-center justify-between ${
+            fullscreen
+              ? 'border-b border-white/10 px-4 py-3 sm:px-6'
+              : 'mb-4'
+          }`}
+        >
           <h2 className="text-lg font-bold text-white">{title}</h2>
           <button
             type="button"
@@ -62,7 +80,9 @@ export function Modal({
             <X className="h-4 w-4" />
           </button>
         </div>
-        {children}
+        <div className={fullscreen ? 'min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5' : undefined}>
+          {children}
+        </div>
       </div>
     </div>
   )

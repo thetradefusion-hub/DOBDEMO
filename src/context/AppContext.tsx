@@ -7,18 +7,24 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { copyToClipboard, formatDemoDetails, uid } from '@/lib/utils'
+import { useAuth } from '@/context/AuthContext'
+import { copyToClipboard, formatDemoDetails, getLandingPageUrl, uid } from '@/lib/utils'
 import { getFirebaseProjectId, initFirebase } from '@/lib/firebase'
 import { isFirebaseConfigured } from '@/lib/firebaseConfig'
+import { INITIAL_LANDINGS, normalizeProductLanding } from '@/data/landings'
+import { INITIAL_CATEGORIES, INITIAL_DEMOS } from '@/data/mock'
 import {
+  ensureLandingDemos,
   fetchVaultData,
   incrementDemoViews,
   patchDemo,
   patchRequest,
   removeCategory,
   removeDemo,
+  removeLanding,
   saveCategory,
   saveDemo,
+  saveLanding,
   saveRequest,
   subscribeVaultData,
 } from '@/lib/firestore'
@@ -27,6 +33,7 @@ import type {
   Category,
   Demo,
   DemoRequest,
+  ProductLanding,
   RequestStatus,
   SortOption,
   ToastItem,
@@ -40,6 +47,7 @@ interface AppContextValue {
   dataError: string | null
   demos: Demo[]
   categories: Category[]
+  landings: ProductLanding[]
   favorites: string[]
   recentlyViewed: string[]
   requests: DemoRequest[]
@@ -59,6 +67,7 @@ interface AppContextValue {
   showToast: (message: string, type?: ToastItem['type']) => void
   dismissToast: (id: string) => void
   getCategory: (id: string) => Category | undefined
+  getLandingBySlug: (slug: string) => ProductLanding | undefined
   isFavorite: (id: string) => boolean
   toggleFavorite: (id: string) => void
   openDemo: (demo: Demo, url?: string) => void
@@ -73,6 +82,8 @@ interface AppContextValue {
   toggleDemoFeatured: (id: string) => void
   upsertCategory: (category: Category) => void
   deleteCategory: (id: string) => void
+  upsertLanding: (landing: ProductLanding) => void
+  deleteLanding: (id: string) => void
   updateRequestStatus: (id: string, status: RequestStatus) => void
   getVisibleDemos: (options?: {
     favoriteOnly?: boolean
@@ -84,12 +95,19 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const { user, isAdmin } = useAuth()
+
   const firebaseConfigured = isFirebaseConfigured()
   const firebaseProjectId = getFirebaseProjectId()
   const [dataReady, setDataReady] = useState(!firebaseConfigured)
   const [dataError, setDataError] = useState<string | null>(null)
-  const [demos, setDemos] = useState<Demo[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
+  const [demos, setDemos] = useState<Demo[]>(() => (firebaseConfigured ? [] : INITIAL_DEMOS))
+  const [categories, setCategories] = useState<Category[]>(() =>
+    firebaseConfigured ? [] : INITIAL_CATEGORIES,
+  )
+  const [landings, setLandings] = useState<ProductLanding[]>(() =>
+    firebaseConfigured ? [] : INITIAL_LANDINGS,
+  )
   const [favorites, setFavorites] = useState<string[]>(() => loadStringArray('dob-favorites'))
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() =>
     loadStringArray('dob-recently-viewed'),
@@ -133,13 +151,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         initFirebase()
         const data = await fetchVaultData()
         if (cancelled) return
-        setDemos(data.demos)
-        setCategories(data.categories)
-        setRequests(data.requests)
+        await ensureLandingDemos(data.demos, data.categories, data.landings).catch(() => null)
+        const refreshed = await fetchVaultData().catch(() => data)
+        if (cancelled) return
+        setDemos(refreshed.demos)
+        setCategories(refreshed.categories)
+        setLandings(refreshed.landings.map(normalizeProductLanding))
+        setRequests(refreshed.requests)
         setDataReady(true)
         unsub = subscribeVaultData({
           onDemos: setDemos,
           onCategories: setCategories,
+          onLandings: (items) => setLandings(items.map(normalizeProductLanding)),
           onRequests: setRequests,
           onState: () => {
             // Favorites / recently viewed stay on this device.
@@ -162,6 +185,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [firebaseConfigured])
 
+  // Authenticated admin can write seed landings/demos that were blocked for guests.
+  useEffect(() => {
+    if (!firebaseConfigured || !dataReady || !isAdmin || !user) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const data = await fetchVaultData()
+        if (cancelled) return
+        const added = await ensureLandingDemos(data.demos, data.categories, data.landings)
+        if (cancelled) return
+        if (
+          added.demos.length ||
+          added.categories.length ||
+          added.landings.length ||
+          added.patched
+        ) {
+          const refreshed = await fetchVaultData()
+          if (cancelled) return
+          setDemos(refreshed.demos)
+          setCategories(refreshed.categories)
+          setLandings(refreshed.landings.map(normalizeProductLanding))
+        }
+      } catch {
+        // Ignore seed sync errors; admin can still create manually.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [firebaseConfigured, dataReady, isAdmin, user])
+
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
@@ -169,6 +223,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const getCategory = useCallback(
     (id: string) => categories.find((c) => c.id === id),
     [categories],
+  )
+
+  const getLandingBySlug = useCallback(
+    (slug: string) => landings.find((item) => item.slug === slug && item.active),
+    [landings],
   )
 
   const isFavorite = useCallback(
@@ -225,6 +284,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           websiteUrl: demo.websiteUrl,
           memberPanelUrl: demo.memberPanelUrl,
           adminPanelUrl: demo.adminPanelUrl,
+          landingPageUrl: demo.landingPageSlug
+            ? getLandingPageUrl(demo.landingPageSlug)
+            : undefined,
           username: demo.username,
           password: demo.password,
         }),
@@ -252,6 +314,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             websiteUrl: demo.websiteUrl,
             memberPanelUrl: demo.memberPanelUrl,
             adminPanelUrl: demo.adminPanelUrl,
+            landingPageUrl: demo.landingPageSlug
+              ? getLandingPageUrl(demo.landingPageSlug)
+              : undefined,
             username: demo.username,
             password: demo.password,
           })}`
@@ -376,6 +441,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [demos, persistError, showToast],
   )
 
+  const upsertLanding = useCallback(
+    (landing: ProductLanding) => {
+      const next = { ...landing, updatedAt: new Date().toISOString() }
+      const exists = landings.some((item) => item.id === next.id)
+      const slugTaken = landings.some((item) => item.slug === next.slug && item.id !== next.id)
+      if (slugTaken) {
+        showToast('Landing slug already in use', 'error')
+        return
+      }
+      setLandings((prev) =>
+        exists ? prev.map((item) => (item.id === next.id ? next : item)) : [next, ...prev],
+      )
+      showToast(exists ? 'Landing page updated' : 'Landing page added')
+      void saveLanding(next).catch(persistError)
+    },
+    [landings, persistError, showToast],
+  )
+
+  const deleteLanding = useCallback(
+    (id: string) => {
+      setLandings((prev) => prev.filter((item) => item.id !== id))
+      showToast('Landing page deleted', 'info')
+      void removeLanding(id).catch(persistError)
+    },
+    [persistError, showToast],
+  )
+
   const updateRequestStatus = useCallback(
     (id: string, status: RequestStatus) => {
       setRequests((prev) =>
@@ -441,6 +533,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dataError,
       demos,
       categories,
+      landings,
       favorites,
       recentlyViewed,
       requests,
@@ -460,6 +553,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       showToast,
       dismissToast,
       getCategory,
+      getLandingBySlug,
       isFavorite,
       toggleFavorite,
       openDemo,
@@ -474,6 +568,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleDemoFeatured,
       upsertCategory,
       deleteCategory,
+      upsertLanding,
+      deleteLanding,
       updateRequestStatus,
       getVisibleDemos,
     }),
@@ -488,6 +584,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dataReady,
       deleteCategory,
       deleteDemo,
+      deleteLanding,
       demos,
       dismissToast,
       duplicateDemo,
@@ -495,8 +592,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       firebaseConfigured,
       firebaseProjectId,
       getCategory,
+      getLandingBySlug,
       getVisibleDemos,
       isFavorite,
+      landings,
       openDemo,
       recentlyViewed,
       requestModalOpen,
@@ -511,6 +610,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleFavorite,
       upsertCategory,
       upsertDemo,
+      upsertLanding,
       updateRequestStatus,
       viewMode,
     ],
